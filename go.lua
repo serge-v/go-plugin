@@ -17,9 +17,18 @@ function init()
     config.AddRuntimeFile("go", config.RTHelp, "help/go-plugin.md")
     config.TryBindKey("F6", "command-edit:gorename ", false)
     config.MakeCommand("gorename", "go.gorenameCmd", config.NoComplete)
+
+    config.MakeCommand("selectnext", "go.selectnext", config.NoComplete)
+    config.MakeCommand("center", "go.center", config.NoComplete)
+    config.MakeCommand("gotofile", "go.gotofile", config.NoComplete)
+    config.TryBindKey("F7", "command:gotofile", false)
 end
 
 local done = 0
+
+function center(bp)
+	bp:Center()
+end
 
 function onSave(bp)
     micro.Log("on save", done)
@@ -142,6 +151,58 @@ function split(str, sep)
 end
 
 function onBufPaneOpen(bp)
-	micro.Log("bp open", bp)
-	bp:Center()
+	micro.Log("bp open", bp.Buf.Path)
 end
+
+function selectnext(bp)
+	local c = bp.Cursor
+	local sel = ""
+	if not c:HasSelection() then
+		c:SelectWord()
+	end
+	sel = c:GetSelection()
+	local bufstart = buffer.Loc(0, 0)
+	local bufend = buffer.Loc(0, 1000000)
+	local from = buffer.Loc(c.X+#sel, c.Y)
+	found, res, err = bp.Buf:FindNext(sel, bufstart, bufend, from, true, false)
+--	micro.Log("from:", from, "sel:", sel, "found:", found, res, err, found[1])
+	if not res then
+		return false
+	end
+	c:GotoLoc(found[1])
+	c:SetSelectionStart(found[1])
+	c:SetSelectionEnd(found[2])
+	bp:Relocate()
+	return true
+end
+
+function parseOutput(line, errorformat)
+    local lines = split(output, "\n")
+    local regex = errorformat:gsub("%%f", "(..-)"):gsub("%%l", "(%d+)"):gsub("%%m", "(.+)")
+    for _,line in ipairs(lines) do
+        -- Trim whitespace
+        line = line:match("^%s*(.+)%s*$")
+        micro.Log("line", line, "regex", regex)
+        if string.find(line, regex) then
+            micro.Log("found")
+            local file, line = string.match(line, regex)
+            bp:HandleCommand("tab "..file..":"..line)
+            micro.Log("godef:", file, line, bf)
+        end
+    end
+end
+
+function gotofile(bp)
+	local c = bp.Cursor
+	local line = bp.Buf:Line(c.Y)
+	local cols = split(line, ":")
+	micro.Log("s:", s, "cols:", cols)
+	bp:HandleCommand("tab "..cols[1]..":"..cols[2])
+end
+
+
+
+
+
+
+
