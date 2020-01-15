@@ -176,22 +176,6 @@ function selectnext(bp)
 	return true
 end
 
-function parseOutput(line, errorformat)
-    local lines = split(output, "\n")
-    local regex = errorformat:gsub("%%f", "(..-)"):gsub("%%l", "(%d+)"):gsub("%%m", "(.+)")
-    for _,line in ipairs(lines) do
-        -- Trim whitespace
-        line = line:match("^%s*(.+)%s*$")
-        micro.Log("line", line, "regex", regex)
-        if string.find(line, regex) then
-            micro.Log("found")
-            local file, line = string.match(line, regex)
-            bp:HandleCommand("tab "..file..":"..line)
-            micro.Log("godef:", file, line, bf)
-        end
-    end
-end
-
 function gotofile(bp)
 	local c = bp.Cursor
 	local line = bp.Buf:Line(c.Y)
