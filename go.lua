@@ -181,7 +181,11 @@ function gotofile(bp)
 	local line = bp.Buf:Line(c.Y)
 	local cols = split(line, ":")
 	micro.Log("s:", s, "cols:", cols)
-	bp:HandleCommand("tab "..cols[1]..":"..cols[2])
+	local fname = cols[1]
+	if #cols > 1 then
+		fname = fname .. ":" .. cols[2]
+	end
+	bp:HandleCommand("tab "..fname)
 end
 
 
