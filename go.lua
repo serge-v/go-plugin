@@ -192,10 +192,8 @@ function gotofile(bp, args)
 	local cols = split(line, ":")
 	local fname = cols[1]
 	if #cols > 1 then
-		fname = fname..":"..cols[2]
+		fname = fname .. ":" .. cols[2]
 	end
 	micro.Log("s:", s, fname)
 	bp:HandleCommand("tab "..fname)
 end
-
-
