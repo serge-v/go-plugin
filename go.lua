@@ -2,25 +2,29 @@ local micro = import("micro")
 local config = import("micro/config")
 local shell = import("micro/shell")
 local buffer = import("micro/buffer")
+local os = import("os")
+local fmt = import("fmt")
 
 micro.Log("start")
+-- local f, _ = os.Create("1.log")
+-- fmt.Fprintln(f, "log opened")
 
 function init()
-    config.RegisterCommonOption("goimports", false)
-    config.RegisterCommonOption("gofmt", true)
+    config.RegisterCommonOption("go", "goimports", false)
+    config.RegisterCommonOption("go", "gofmt", true)
 
-    config.MakeCommand("goimports", "go.goimports", config.NoComplete)
-    config.MakeCommand("gofmt", "go.gofmt", config.NoComplete)
-    config.MakeCommand("gorename", "go.gorename", config.NoComplete)
-    config.MakeCommand("godef", "go.godef", config.NoComplete)
+    config.MakeCommand("goimports", goimports, config.NoComplete)
+    config.MakeCommand("gofmt", gofmt, config.NoComplete)
+    config.MakeCommand("gorename", gorename, config.NoComplete)
+    config.MakeCommand("godef", godef, config.NoComplete)
 
     config.AddRuntimeFile("go", config.RTHelp, "help/go-plugin.md")
     config.TryBindKey("F6", "command-edit:gorename ", false)
-    config.MakeCommand("gorename", "go.gorenameCmd", config.NoComplete)
+    config.MakeCommand("gorename", gorenameCmd, config.NoComplete)
 
-    config.MakeCommand("selectnext", "go.selectnext", config.NoComplete)
-    config.MakeCommand("center", "go.center", config.NoComplete)
-    config.MakeCommand("gotofile", "go.gotofile", config.NoComplete)
+    config.MakeCommand("selectnext", selectnext, config.NoComplete)
+    config.MakeCommand("center", center, config.NoComplete)
+    config.MakeCommand("gotofile", gotofile, config.NoComplete)
     config.TryBindKey("F7", "command:gotofile", false)
 end
 
@@ -49,7 +53,7 @@ function onSave(bp)
     return false
 end
 
-function gofmt(bp)
+function gofmt(bp, args)
     bp:Save()
     local _, err = shell.RunCommand("gofmt -w " .. bp.Buf.Path)
     if err ~= nil then
@@ -91,7 +95,7 @@ function renameExit(output, args)
     bp.Buf:ReOpen()
 end
 
-function goimports(bp)
+function goimports(bp, args)
     bp:Save()
     local _, err = shell.RunCommand("goimports -w " .. bp.Buf.Path)
     if err ~= nil then
@@ -154,7 +158,7 @@ function onBufPaneOpen(bp)
 	micro.Log("bp open", bp.Buf.Path)
 end
 
-function selectnext(bp)
+function selectnext(bp, args)
 	local c = bp.Cursor
 	local sel = ""
 	if not c:HasSelection() then
@@ -167,26 +171,24 @@ function selectnext(bp)
 	found, res, err = bp.Buf:FindNext(sel, bufstart, bufend, from, true, false)
 --	micro.Log("from:", from, "sel:", sel, "found:", found, res, err, found[1])
 	if not res then
-		return false
+		return
 	end
 	c:GotoLoc(found[1])
 	c:SetSelectionStart(found[1])
 	c:SetSelectionEnd(found[2])
 	bp:Relocate()
-	return true
 end
 
-function gotofile(bp)
+function gotofile(bp, args)
 	local c = bp.Cursor
 	local line = bp.Buf:Line(c.Y)
 	local cols = split(line, ":")
-	micro.Log("s:", s, "cols:", cols)
-	bp:HandleCommand("tab "..cols[1]..":"..cols[2])
+	local fname = cols[1]
+	if #cols > 1 then
+		fname = fname..":"..cols[2]
+	end
+	micro.Log("s:", s, fname)
+	bp:HandleCommand("tab "..fname)
 end
-
-
-
-
-
 
 
