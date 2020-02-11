@@ -115,10 +115,15 @@ function godef(bp, args)
     local offset = buffer.ByteOffset(loc, buf)
     local cmdargs = {"-f", buf.Path, "-o", tostring(offset)}
     micro.Log("godef", cmdargs)
-    shell.JobSpawn("godef", cmdargs, "", "go.godefStderr", "go.godefStdout", bp)
+    shell.JobSpawn("godef", cmdargs, godefStdout, godefStderr, godefExit, bp)
 end
 
 function godefStderr(err)
+    micro.Log(err)
+    micro.InfoBar():Message(err)
+end
+
+function godefExit(err)
     micro.Log(err)
     micro.InfoBar():Message(err)
 end
