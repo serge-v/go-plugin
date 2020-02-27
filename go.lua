@@ -9,10 +9,10 @@ local fmt = import("fmt")
 
 micro.Log("start")
 
-function init()
-    config.RegisterCommonOption("go", "goimports", false)
-    config.RegisterCommonOption("go", "gofmt", true)
+config.RegisterCommonOption("go", "goimports", false)
+config.RegisterCommonOption("go", "gofmt", true)
 
+function init()
     config.MakeCommand("goimports", goimports, config.NoComplete)
     config.MakeCommand("gofmt", gofmt, config.NoComplete)
     config.MakeCommand("gorename", gorenameCmd, config.NoComplete)
@@ -36,16 +36,16 @@ function center(bp)
 end
 
 function onSave(bp)
-    micro.Log("on save", done)
+--    micro.Log("on save", done, bp.Buf:FileType(), bp.Buf.Settings["go.gomports"], bp.Buf.Settings["go.gofmt"])
     if done == 1 then
         return false
     end
     done = 1
     if bp.Buf:FileType() == "go" then
-        if bp.Buf.Settings["goimports"] then
+        if bp.Buf.Settings["go.goimports"] then
             micro.Log("do goimports", bp.Buf.Path)
             goimports(bp)
-        elseif bp.Buf.Settings["gofmt"] then
+        elseif bp.Buf.Settings["go.gofmt"] then
             micro.Log("do gofmt", bp.Buf.Path)
             gofmt(bp)
         end
