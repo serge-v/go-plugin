@@ -8,8 +8,6 @@ local os = import("os")
 local fmt = import("fmt")
 
 micro.Log("start")
--- local f, _ = os.Create("1.log")
--- fmt.Fprintln(f, "log opened")
 
 function init()
     config.RegisterCommonOption("go", "goimports", false)
@@ -21,13 +19,14 @@ function init()
 
     config.AddRuntimeFile("go", config.RTHelp, "help/go-plugin.md")
     config.TryBindKey("F6", "command-edit:gorename ", false)
-    config.MakeCommand("gorename", gorenameCmd, config.NoComplete)
 
     config.MakeCommand("godef", godef, config.NoComplete)
     config.MakeCommand("selectnext", selectnext, config.NoComplete)
     config.MakeCommand("center", center, config.NoComplete)
     config.MakeCommand("gotofile", gotofile, config.NoComplete)
     config.TryBindKey("F7", "command:gotofile", false)
+    config.MakeCommand("bm", bookmark, config.NoComplete)
+    config.MakeCommand("goback", goback, config.NoComplete)
 end
 
 local done = 0
@@ -109,15 +108,17 @@ function goimports(bp, args)
 end
 
 function godef(bp, args)
-    micro.Log("godef")
-    bp:Save()
-    local buf = bp.Buf
-    local c = bp.Cursor
-    local loc = buffer.Loc(c.X, c.Y)
-    local offset = buffer.ByteOffset(loc, buf)
-    local cmdargs = {"-f", buf.Path, "-o", tostring(offset)}
-    micro.Log("godef", cmdargs)
-    shell.JobSpawn("godef", cmdargs, godefStdout, godefStderr, godefExit, bp)
+	micro.Log("godef")
+	if bp.Buf:Modified() then
+		bp:Save()
+	end
+	local buf = bp.Buf
+	local c = bp.Cursor
+	local loc = buffer.Loc(c.X, c.Y)
+	local offset = buffer.ByteOffset(loc, buf)
+	local cmdargs = {"-f", buf.Path, "-o", tostring(offset)}
+	micro.Log("godef", cmdargs)
+	shell.JobSpawn("godef", cmdargs, godefStdout, godefStderr, godefExit, bp)
 end
 
 function godefStderr(err)
@@ -145,8 +146,10 @@ function parseOutput(bp, output, errorformat)
         micro.Log("line", line, "regex", regex)
         if string.find(line, regex) then
             micro.Log("found")
+            bookmark(bp)
             local file, line = string.match(line, regex)
-            bp:HandleCommand("tab "..file..":"..line)
+            bp:HandleCommand("open "..file..":"..line)
+            bp:Center()
             micro.Log("godef:", file, line, bf)
         end
     end
@@ -196,4 +199,29 @@ function gotofile(bp, args)
 	end
 	micro.Log("s:", s, fname)
 	bp:HandleCommand("tab "..fname)
+end
+
+bookmarks = {}
+bookmark_idx = -1
+
+function bookmark(bp)
+	local buf = bp.Buf
+	local c = bp.Cursor
+	local loc = buffer.Loc(c.X, c.Y)
+	local fpath = fmt.Sprintf("%s:%.0f:%.0f", buf.Path, c.Y+1, c.X+1)
+	bookmark_idx = bookmark_idx + 1
+	bookmarks[bookmark_idx] = fpath
+	micro.Log("bookmark", fmt.Sprintf("%+v", bookmarks))
+	micro.InfoBar():Message("bookmarked: "..fpath)
+end
+
+function goback(bp)
+	if bookmark_idx < 0 then
+		micro.InfoBar():Message("no bookmarks")
+		return
+	end
+	fpath = bookmarks[bookmark_idx]
+	bookmark_idx = bookmark_idx - 1
+	bp:HandleCommand("open "..fpath)
+	bp:Center()
 end
