@@ -18,13 +18,11 @@ function init()
     config.MakeCommand("gorename", gorenameCmd, config.NoComplete)
 
     config.AddRuntimeFile("go", config.RTHelp, "help/go-plugin.md")
-    config.TryBindKey("F6", "command-edit:gorename ", false)
 
     config.MakeCommand("godef", godef, config.NoComplete)
     config.MakeCommand("selectnext", selectnext, config.NoComplete)
     config.MakeCommand("center", center, config.NoComplete)
     config.MakeCommand("gotofile", gotofile, config.NoComplete)
-    config.TryBindKey("F7", "command:gotofile", false)
     config.MakeCommand("bm", bookmark, config.NoComplete)
     config.MakeCommand("goback", goback, config.NoComplete)
 end
@@ -134,12 +132,12 @@ end
 function godefStdout(output, args)
     local bp = args[1]
     micro.Log("godef stdout:", output)
-    parseOutput(bp, output, "%f:%l:%d+")
+    parseOutput(bp, output, "%f:%l:%m")
 end
 
 function parseOutput(bp, output, errorformat)
     local lines = split(output, "\n")
-    local regex = errorformat:gsub("%%f", "(..-)"):gsub("%%l", "(%d+)"):gsub("%%m", "(.+)")
+    local regex = errorformat:gsub("%%f", "(..-)"):gsub("%%l", "(%d+)"):gsub("%%m", "(%d+)")
     for _,line in ipairs(lines) do
         -- Trim whitespace
         line = line:match("^%s*(.+)%s*$")
@@ -147,8 +145,8 @@ function parseOutput(bp, output, errorformat)
         if string.find(line, regex) then
             micro.Log("found")
             bookmark(bp)
-            local file, line = string.match(line, regex)
-            bp:HandleCommand("open "..file..":"..line)
+            local file, line, pos = string.match(line, regex)
+            bp:HandleCommand("open "..file..":"..line..":"..pos)
             bp:Center()
             micro.Log("godef:", file, line, bf)
         end
@@ -197,8 +195,9 @@ function gotofile(bp, args)
 	if #cols > 1 then
 		fname = fname .. ":" .. cols[2]
 	end
+	bookmark(bp)
 	micro.Log("s:", s, fname)
-	bp:HandleCommand("tab "..fname)
+	bp:HandleCommand("open "..fname)
 end
 
 bookmarks = {}
@@ -209,10 +208,12 @@ function bookmark(bp)
 	local c = bp.Cursor
 	local loc = buffer.Loc(c.X, c.Y)
 	local fpath = fmt.Sprintf("%s:%.0f:%.0f", buf.Path, c.Y+1, c.X+1)
-	bookmark_idx = bookmark_idx + 1
-	bookmarks[bookmark_idx] = fpath
-	micro.Log("bookmark", fmt.Sprintf("%+v", bookmarks))
-	micro.InfoBar():Message("bookmarked: "..fpath)
+	if #buf.Path > 0 then
+		bookmark_idx = bookmark_idx + 1
+		bookmarks[bookmark_idx] = fpath
+		micro.Log("bookmark", fmt.Sprintf("%+v", bookmarks))
+		micro.InfoBar():Message("bookmarked: "..fpath)
+	end
 end
 
 function goback(bp)
