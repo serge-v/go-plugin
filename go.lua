@@ -6,6 +6,7 @@ local shell = import("micro/shell")
 local buffer = import("micro/buffer")
 local os = import("os")
 local fmt = import("fmt")
+local strings = import("strings")
 
 micro.Log("start")
 
@@ -16,6 +17,7 @@ function init()
     config.MakeCommand("goimports", goimports, config.NoComplete)
     config.MakeCommand("gofmt", gofmt, config.NoComplete)
     config.MakeCommand("gorename", gorenameCmd, config.NoComplete)
+    config.MakeCommand("goautocomplete", doAutocomplete, config.NoComplete)
 
     config.AddRuntimeFile("go", config.RTHelp, "help/go-plugin.md")
 
@@ -197,7 +199,7 @@ function gotofile(bp, args)
 	end
 	bookmark(bp)
 	micro.Log("s:", s, fname)
-	bp:HandleCommand("open "..fname)
+	bp:HandleCommand("tab "..fname)
 end
 
 bookmarks = {}
@@ -226,3 +228,105 @@ function goback(bp)
 	bp:HandleCommand("open "..fpath)
 	bp:Center()
 end
+
+local completions = {}
+local suggestions = {}
+
+function completer()
+	return completions, suggestions
+end
+
+local gocompletePane = nil
+
+function gocodeExit(output, args)
+	if gocompletePane ~= nil then
+		gocompletePane:Quit()
+		gocompletePane = nil
+	end
+
+	local found = strings.HasPrefix(output, "Found")
+	if not found then
+		return
+	end
+
+	local comp = {}
+	local sugg = {}
+	local s
+	local arr = strings.Split(output, "\n")
+	local chunk = args[2]
+	
+	for i = 1,#arr do
+		local s = arr[i]
+		if strings.HasPrefix(s, "  func ") then
+			s = strings.TrimPrefix(s, "  func ")
+			local cc = strings.Split(s, "(")
+			s = cc[1]
+			table.insert(sugg, s)
+			s = strings.TrimPrefix(s, chunk)
+			table.insert(comp, s)
+		elseif strings.HasPrefix(s, "  var ") then
+			s = strings.TrimPrefix(s, "  var ")
+			local cc = strings.Split(s, " ")
+			s = cc[1]
+			table.insert(sugg, s)
+			s = strings.TrimPrefix(s, chunk)
+			table.insert(comp, s)
+		else
+			micro.Log("s: "..s)
+		end
+	end
+
+	completions = comp
+	suggestions = sugg
+
+	-- local b = buffer.NewBuffer(output, "gocomplete")
+	-- b.Type.Scratch = true
+	-- b.Type.Readonly = true
+	-- micro.CurPane():VSplitIndex(b, true)
+	-- gocompletePane = micro.CurPane()
+	local bp = args[1]
+	bp.Buf:Autocomplete(completer)
+end
+
+function doAutocomplete(bp, args)
+	bp.Buf:Save()
+
+	local c = bp.Cursor
+	local line = bp.Buf:Line(c.Y)
+	local chunk = string.sub(line, 1, c.X)
+	local cc = strings.Split(chunk, ".")
+	if #cc == 2 then
+		chunk = cc[2]
+	end
+	micro.Log("chunk: "..chunk)
+	
+	local loc = buffer.Loc(c.X, c.Y)
+	local offs = buffer.ByteOffset(loc, c:Buf())
+
+	local cmd = fmt.Sprintf("gocode -in %s autocomplete %.0f", c:Buf().AbsPath, offs)
+	micro.Log("autcomplete: "..cmd)
+
+	shell.JobStart(cmd, nil, nil, gocodeExit, bp, chunk)
+end
+
+-- function onRune(bp, r)
+	-- micro.Log("rune: "..r)
+	-- if gocompletePane == nil then
+		-- return
+	-- end
+-- 
+	-- local s = tostring(r)
+	-- 
+	-- if s == "q" then
+		-- gocompletePane:Quit()
+		-- gocompletePane = nil
+		-- return
+	-- end
+-- 
+	-- if s == "a" then
+		-- gocompletePane:Quit()
+		-- gocompletePane = nil
+		-- return
+	-- end
+-- 
+-- end
